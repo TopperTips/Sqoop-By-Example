@@ -1,0 +1,264 @@
+Topic 1: Transferring Data from Hadoop
+-----------------------------
+1) Export works similarly to import, except export transfers data in the other direction
+2) Instead of transferring data from the relational database using SELECT queries, Sqoop will transfer the data to the relational database using INSERT statements
+3) Sqoop’s export workflow matches the import case with slight differences.
+4) After you execute the Sqoop command, Sqoop will connect to your database to fetch various metadata about your table, including the list of all columns with their appropriate types.
+5) Using this metadata, Sqoop will generate and compile the Java class. The generated class will be used in the submitted MapReduce job that will export your data
+6) Similar to the import mode, no data is being transferred through the Sqoop client itself. All transfers are done in the MapReduce job, with Sqoop overseeing the process from your machine.
+7) Sqoop fetches the table’s metadata in the export: the destination table (specified with the --table parameter) must exist prior to running Sqoop.
+8) The table does not have to be empty, and you can even export new data from Hadoop to your database on an iterative basis.
+9) The only requirement is that  there not be any constraint violations when performing the INSERT statements
+
+Topic 1.1 Simple export 
+-------------------------
+following are the arguments we need to pass
+    --connect with JDBC connect string. It should include target database
+    --username and --password the user should have write permission on the table into which data is being exported
+    --table, target table in the relational database such as MySQL into which data need to be copied
+    --export-dir from which data need to be copied
+
+Delimiters
+-----------
+1) Sqoop by default expect “,” to be a field delimiter
+2) But Hive default delimiter is Ascii 1 (\001)
+3) --input-fields-terminated-by can be used to pass the delimiting character
+
+
+Export Behavior
+---------------
+1) Read data from the export directory
+2) By default, Sqoop export uses 4 parallel threads to read the data by using Map Reduce split logic (based upon HDFS block size)
+3) Each thread establishes database connection using JDBC URL, username and password
+4) Generated insert statement to load data into the target table
+4) Issues insert statements in the target table using connection established per thread (or mapper)
+5) Number of mappers – we can increase or decrease the number of threads by using –-num-mappers or -m
+
+Excercies
+---------
+Create a separate schema & table in MySql
+1) create database retail_export;
+2) use retail_export;
+3) create following table
+create table daily_revenue(
+  order_date varchar(30),
+  revenue float
+);
+
+Topic 2: Inserting Data in Batches
+----------------------------------
+While Sqoop’s export feature fits your needs, it’s too slow. It seems that each row is inserted in a separate insert statement. Is there a way to batch multiple insert statements
+together?
+
+Tailored for various databases and use cases, Sqoop offers multiple options for inserting more than one row at a time.
+First, you can enable JDBC batching using the --batch parameter:
+
+    sqoop export \
+        --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --export-dir cities \
+        --batch
+
+The second option is to use the property sqoop.export.records.per.statement to specify the number of records that will be used in each insert statement:
+    sqoop export \
+        -Dsqoop.export.records.per.statement=10 \
+        --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --export-dir cities
+        
+Finally, you can set how many rows will be inserted per transaction with the sqoop.export.statements.per.transaction property:
+
+    sqoop export \
+        -Dsqoop.export.statements.per.transaction=10 \
+        --connect jdbc:mysql:/localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --export-dir cities
+        
+The default values can vary from connector to connector. Sqoop defaults to disabled batching and to 100 for both sqoop.export.records.per.statement and
+sqoop.export.statements.per.transaction properties.
+
+
+Topic 3: Exporting with All-or-Nothing Semantics
+------------------------------------------------
+You need to ensure that Sqoop will either export all data from Hadoop to your database or export no data (i.e., the target table will remain empty).
+
+You can use a staging table to first load data to a temporary table before making changes to the real table. The staging table name is specified via the --staging-table parameter.
+In the below example, we set it to staging_cities:
+
+    sqoop export \
+        --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --staging-table staging_cities
+        
+Point to be noted here
+
+1) When using a staging table, Sqoop will first export all data into this staging table instead of the main table that is present in the parameter --table. Sqoop opens a new transaction
+to move data from the staging table to the final destination, if and only if all parallel tasks successfully transfer data. 
+2) On one hand, this approach guarantees all-ornothing semantics for the export operation, but it also exposes additional limitations
+on the database side. 
+3) As Sqoop will export data into the staging table and then move it to the final table, there is a period of time where all your data is stored twice in the database (one copy in the staging table and one in the final table). 
+4) You must have sufficient free space on your system to accommodate two copies in order to use this method.
+5) As the data is first loaded somewhere else and then moved to the final table, using a staging table will always be slower than exporting directly to the final table.
+6) Sqoop requires that the structure of the staging table be the same as that of the target table. The number of columns and their types must be the same; otherwise, the export
+operation will fail. Other characteristics are not enforced
+7) You can specify the parameter --clear-staging-table to instruct Sqoop to automatically clean the staging table for you. 
+8) If supported by the database, Sqoop will use a TRUNCATE operation to clean up the staging table as quickly as possible.
+
+
+Topic 4: Updating an Existing Data Set
+----------------------------------------
+Previously exported data from Hadoop, after which you ran additional processing that changed it. 
+Instead of wiping out the existing data from the database, you prefer to just update any changed rows.
+
+You can take advantage of the update feature that will issue UPDATE instead of INSERT statements. 
+The update mode is activated by using the parameter --update-key that contains the name of a column that can identify a changed row—usually the primary
+key of a table. 
+For example, the following command allows you to use the column id of table cities:
+    sqoop export \
+        --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --update-key id
+
+The parameter --update-key is used to instruct Sqoop to update existing rows rather than insert new ones. 
+This parameter requires a comma-separated list of columns that should be used to uniquely identify a row.
+
+Topic 5 : Updating or Inserting at the Same Time
+-------------------------------------------------
+You have data in your database from a previous export, but now you need to propagate updates from Hadoop. 
+Unfortunately, you can’t use the update mode, as you have a considerable number of new rows and you need to export them as well.
+
+If you need both updates and inserts in the same job, you can activate the so-called upsert mode with the --update-mode allowinsert parameter. 
+For example:
+
+    sqoop export \
+        --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --update-key id \
+        --update-mode allowinsert
+        
+The ability to conditionally insert a new row or update an existing one is an advanced database feature known as upsert. 
+This feature is not available on all database systems nor supported by all Sqoop connectors. 
+Currently it’s available only for Oracle and nondirect MySQL exports.
+
+Point to be noted
+------------------
+1) Each database implements the upsert feature a bit differently. 
+2) With Oracle, Sqoop uses a MERGE statement that specifies an entire condition for distinguishing whether an insert or update operation should be performed. 
+3) With MySQL, Sqoop uses an ON DUPLICATE KEY UPDATE clause that does not accept any user-specified conditions; it decides whether to update or insert based on the table’s unique key.
+
+
+Topic 6 : Using Stored Procedures
+----------------------------------
+Your database already has a workflow for ingesting new data that heavily uses stored procedures instead of direct INSERT statements.
+
+You can switch from INSERT statements to stored procedures very easily. 
+Instead of using the --table parameter to specify the target table, use the --call parameter followed by the name of the stored procedure that should be called. In the example below, we use
+the stored procedure named populate_cities:
+
+    sqoop export \
+         --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --call populate_cities
+
+
+1) Using a stored procedure in Sqoop export is very straightforward. 
+2) Instead of issuing an INSERT statement, Sqoop will call your stored procedure with the value for each column of the input data as a separate parameter. 
+3) For example, when exporting into MySQL, Sqoop uses the following query:
+    CALL populate_cities(?, ?, ?)
+4) There are a couple of gotchas that you should keep in mind when using stored procedures for export. 
+5) Sqoop is a specialized bulk transfer tool that will run several concurrent export tasks, all calling stored procedures in a parallel manner. 
+6) Sqoop does not impose any limitation on the stored procedure complexity. 
+7) Complex procedures may induce heavy load on the database server, negatively affecting its performance. 
+8) You are advised to use this feature with a very simple stored procedure or rather prepare the data on the Hadoop side properly so that it can be inserted directly into the final tables, bypassing
+the advanced logic in the stored procedure.
+
+Topic 7: Exporting into a Subset of Columns
+--------------------------------------------
+You have data in Hadoop that you need to export. Unfortunately, the corresponding table in your database has more columns than the HDFS data.
+
+You can use the --columns parameter to specify which columns (and in what order) are present in the Hadoop data. For example, to limit the export to columns country
+and city, use the following command:
+    sqoop export \
+         --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --columns country,city
+
+Import Point : Columns that are not being exported must either allow NULL values or contain a default value that your DB engine could use.
+
+Notes:-
+1) By default, Sqoop assumes that your HDFS data contains the same number and ordering of columns as the table you’re exporting into. 
+2) The parameter --columns is used to specify either a reordering of columns or that only a subset of table columns is available in the input files. 
+3) The parameter accepts a comma-separated list of column names and can be particularly helpful if you’re exporting data to different tables or your table has changed
+between the import and export operations.
+4) There is a limitation to keep in mind when using the --columns parameter while exporting only to a subset of table columns. 
+5) As Sqoop uses INSERT statements to transfer data from Hadoop, the database must allow inserting new rows with only specified columns.
+
+
+Topic 8: Encoding the NULL Value Differently
+---------------------------------------------
+Your Hadoop processing uses custom string constants to encode missing values, and you need Sqoop to properly use them rather than insisting on the default null
+
+You can override the NULL substitution characters by setting the --input-nullstring and --input-null-non-string parameters to any value. 
+For example, use the following command to override it to \N:
+
+    sqoop export \
+         --connect jdbc:mysql://localhost:3306/hadoop_export \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --input-null-string '\\N' \
+        --input-null-non-string '\\N'
+        
+        
+Note:
+1) Specifically for text-based columns, defined as VARCHAR, CHAR, NCHAR, TEXT, and a few others, you can use the parameter --input-null-string. 
+2) Independent of this parameter, for all other column data types you can use the --input-null-non-string parameter.
+3) Some of the connectors might not support different substitution strings for different column types and so might require you to specify the same value for both parameters.
+
+How it works internally
+-----------------------
+Internally, the values specified in the --null(-non)-string parameters are encoded as a string constant in the generated Java code. 
+You can take advantage of this by specifying any arbitrary string using octal representation without worrying about proper encoding.
+If you want to use \N to encode missing values, then you need to specify \\N on the command line; \ is a special escape string character in Java that will be interpreted by the compiler.
+Your shell will try to unescape the parameters for you, so you need to enclose those parameters in single quotes ('). Using double quotes (") will cause your shell to interpret the escape characters, changing the parameters before passing them to Sqoop.
+
+
+Topic 9 : Exporting Corrupted Data
+-----------------------------------
+The input data is not clean. Sqoop fails on the export command with the following exception:
+
+java.io.IOException: Can't export data, please check task tracker logs
+
+Sqoop export will fail if your data is not in the format that Sqoop expects. 
+If some of your rows have fewer or more columns than expected, you might see that exception. 
+To help you triage the corrupted row, Sqoop will print out very detailed information about the incident into the task log, for example:
+
+    java.lang.NumberFormatException: For input string: "A"
+    ...
+    TextExportMapper: On input: A,Czech Republic,Koprivnice
+    TextExportMapper: On input file: /user/root/corrupted_cities/input.corrupted
+    TextExportMapper: At position 0
+    TextExportMapper:
+    TextExportMapper: Currently processing split:
+    TextExportMapper: Paths:/user/root/corrupted_cities/input.corrupted:0+1
+    TextExportMapper:
+    
+    
+The example shows a corrupted file when we artificially changed the first column of the table cities from an integer constant to the letter A. 
+Sqoop has reported which exception was thrown, in which input file it happened, where exactly in the file it occurred, and finally the entire row that it is currently processing. 
+Unfortunately, Sqoop currently does not offer the ability to skip corrupted rows, so you must fix them prior to running the export job.

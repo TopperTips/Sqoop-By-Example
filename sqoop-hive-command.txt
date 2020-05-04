@@ -1,0 +1,95 @@
+Topic 1: Importing Data Directly into Hive
+-------------------------------------------
+Sqoop to import your data directly into Hive.
+
+Sqoop supports importing into Hive. Add the parameter --hive-import to your command to enable it:
+
+    sqoop import \
+        --connect jdbc:mysql://localhost:3306/hadoop_import \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --hive-import
+        
+Note:
+-----
+1) The biggest advantage of using Sqoop for populating tables in Hive is that it can automatically populate the metadata for you. 
+2) If the table in Hive does not exist yet, Sqoop will simply create it based on the metadata fetched for your table or query. 
+3) If the table already exists, Sqoop will import data into the existing table.
+4) If you’re creating a new Hive table, Sqoop will convert the data types of each column from your source table to a type compatible with Hive. 
+5) Usually this conversion is straightforward: for example, JDBC types VARCHAR, CHAR, and other string-based types are all mapped to Hive STRING.
+6) Sometimes the default mapping doesn’t work correctly for your needs; in those cases, you can use the parameter --map-column-hive to override it. 
+7) This parameter expects a comma-separated list of key-value pairs separated by the equal sign (=) in order to specify which column should be matched to which type in Hive. 
+8) For example, if you want to change the Hive type of column id to STRING and column price to DECIMAL, you can specify the following Sqoop parameters:
+
+    sqoop import \
+    ...
+        --hive-import \
+        --map-column-hive id=STRING,price=DECIMAL
+        
+9) During a Hive import, Sqoop will first do a normal HDFS import to a temporary location.
+10)After a successful import, Sqoop generates two queries: one for creating a table and another one for loading the data from a temporary location. 
+11) You can specify any temporary location using either the --target-dir or --warehouse-dir parameter. 
+12) It’s important not to use Hive’s warehouse directory (usually /user/hive/warehouse) for the temporary location, as it may cause issues with loading data in the second step.
+13) If your table already exists and contains data, Sqoop will append to the newly imported data. 
+14) You can change this behavior by using the parameter --hive-overwrite, which will instruct Sqoop to truncate an existing Hive table and load only the newly imported one.
+15) This parameter is very helpful when you need to refresh Hive’s table data on a periodic basis.
+
+
+Topic 2: Using Partitioned Hive Tables
+---------------------------------------
+You want to import data into Hive on a regular basis (for example, daily), and for that purpose your Hive table is partitioned. 
+You would like Sqoop to automatically import data into the partition rather than only to the table.
+
+Sqoop supports Hive partitioning out of the box. 
+In order to take advantage of this functionality, you need to specify two additional parameters: --hive-partition-key, which contains the name of the partition column, and --hive-partition-value, which specifies the desired value. 
+For example, if your partition column is called day and you want to import your data into the value 2013-05-22, you would use the following
+command:
+    sqoop import \
+        --connect jdbc:mysql://localhost:3306/hadoop_import \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --hive-import \
+        --hive-partition-key day \
+        --hive-partition-value "2013-05-22"
+        
+        
+1) Sqoop mandates that the partition column be of type STRING. The current implementation is limited to a single partition level. 
+2) Unfortunately, you can’t use this feature if your table has more than one level of partitioning (e.g., if you would like a partition by day followed by a partition by hour). 
+3) This limitation will most likely be removed in future Sqoop releases.
+4) Hive’s partition support is implemented with virtual columns that are not part of the data itself. 
+5) Each partition operation must contain the name and value of the partition.
+6) Sqoop can’t use your data to determine which partition this should go into. 
+7) Instead Sqoop relies on the user to specify the parameter --hive-partition-value with an appropriate value.
+
+
+
+Topic 3: Replacing Special Delimiters During Hive Import
+---------------------------------------------------------
+
+You’ve imported the data directly into Hive using Sqoop’s --hive-import feature. 
+When you call SELECT count(*) FROM your_table query to see how many rows are in the imported table, you get a larger number than is stored in the source table on the relational database side.
+
+This issue is quite often seen when the data contains characters that are used as Hive’s delimiters. 
+You can instruct Sqoop to automatically clean your data using --hive-dropimport-delims, which will remove all \n, \t, and \01 characters from all string-based
+columns:
+    sqoop import \
+        --connect jdbc:mysql://localhost:3306/hadoop_import \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --hive-import \
+        --hive-drop-import-delims
+        
+        
+If removing the special characters is not an option in your use case, you can take advantage of the parameter --hive-delims-replacement, which will accept a replacement string. 
+Instead of removing separators completely, they will be replaced with a specified string. The following example will replace all \n, \t, and \01 characters with
+the string SPECIAL:
+    sqoop import \
+        --connect jdbc:mysql://localhost:3306/hadoop_import \
+        --username root \
+        --password cloudera \
+        --table cities \
+        --hive-import \
+        --hive-delims-replacement "SPECIAL"

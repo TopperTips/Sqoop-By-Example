@@ -1,0 +1,511 @@
+https://sqoop.apache.org/docs/1.4.6/SqoopUserGuide.html#_introduction
+What is Sqoop?
+Sqoop is an open source tool that enables users to transfer bulk data between Hadoop eco system and relational databases.
+Sqoop − “SQL to Hadoop and Hadoop to SQL”
+While it comes to transfer data between Hadoop and relational database servers, Sqoop is the best tool. To be more specific, we use it to import data from relational databases such as MySQL, Oracle to Hadoop  HDFS, and export from Hadoop file system to relational databases. Basically, it is provided by the Apache Software Foundation.
+Moreover, Sqoop uses two main tools. Like:
+Sqoop import  (Copy data from RDBMS to HDFS)
+Sqoop export  (Copy data from HDFS to RDBMS)
+
+Mention the best features of Apache Sqoop.
+Apache Sqoop is a tool in Hadoop ecosystem have several advantages. Like
+1.	Parallel import/export
+2.	Connectors for all major RDBMS Databases
+3.	Import results of SQL query
+4.	Incremental Load
+5.	Full Load
+6.	Kerberos Security Integration
+7.	Load data directly into Hive / HBase
+8.	Compression
+9.	Support for Accumulo
+
+What are the relational databases supported in Sqoop?
+Below are the list of RDBMSs that are supported by Sqoop Currently.
+•	MySQL
+•	PostGreSQL
+•	Oracle
+•	Microsoft SQL
+•	IBM’s Netezza
+•	Teradata
+What are the destination types allowed in Sqoop Import command?
+Currently Sqoop Supports data imported into below services.
+•	HDFS
+•	Hive
+•	HBase
+•	HCatalog
+•	Accumulo
+Is Sqoop similar to distcp in hadoop?
+Partially yes, hadoop’s distcp command is similar to Sqoop Import command. Both submits parallel map-only jobs but distcp is used to copy any type of files from Local FS/HDFS to HDFS and Sqoop is for transferring the data records only between RDMBS and Hadoop eco system services, HDFS, Hive and HBase.
+What are the majorly used commands in Sqoop?
+In Sqoop Majorly Import and export commands are used. But below commands are also useful some times.
+•	codegen
+•	eval
+•	import-all-tables
+•	job
+•	list-databases
+•	list-tables
+•	merge
+•	metastore
+When Importing tables from MySQL to what are the precautions that needs to be taken care w.r.t to access?
+In MySQL, we need to make sure that we have granted all privileges on the databases, that needs to be accessed, should be given to all users at destination hostname. If Sqoop is being run under localhost and MySQL is also present on the same then we can grant the permissions with below two commands from MySQL shell logged in with ROOT user.
+$ mysql -u root -p
+mysql> GRANT ALL PRIVILEGES ON *.* TO '%'@'localhost';
+mysql> GRANT ALL PRIVILEGES ON *.* TO ''@'localhost';
+
+What if my MySQL server is running on MachineA and Sqoop is running on MachineB for the above question?
+From MachineA login to MySQL shell and perform the below command as root user. If using hostname of second machine, then that should be added to /etc/hosts file of first machine.
+$ mysql -u root -p
+mysql> GRANT ALL PRIVILEGES ON *.* TO '%'@'MachineB hostname or Ip address';
+mysql> GRANT ALL PRIVILEGES ON *.* TO ''@'MachineB hostname or Ip address';
+
+How Many Mapreduce jobs and Tasks will be submitted for Sqoop copying into HDFS?
+For each sqoop copying into HDFS only one mapreduce job will be submitted with 4 map tasks. There will not be any reduce tasks scheduled.
+How can we control the parallel copying of RDBMS tables into hadoop ?
+We can control/increase/decrease speed of copying by configuring the number of map tasks to be run for each sqoop copying process. We can do this by providing argument -m 10 or –num-mappers 10 argument to sqoop import command. If we specify -m 10 then it will submit 10 map tasks parallel at a time. Based on our requirement we can increase/decrease this number to control the copy speed.
+What is the criteria for specifying parallel copying in Sqoop with multiple parallel map tasks?
+To use multiple mappers in Sqoop, RDBMS table must have one primary key column (if present) in a table and the same will be used as split-by column in Sqoop process. If primary key is not present, we need to provide any unique key column or set of columns to form unique values and these should be provided to -split-by column argument.
+While loading tables from MySQL into HDFS, if we need to copy tables with maximum possible speed, what can you do ?
+We need to use –direct argument in import command to use direct import fast path and this –direct can be used only with MySQL and PostGreSQL as of now.
+What is the example connect string for Oracle database to import tables into HDFS?
+We need to use Oracle JDBC Thin driver while connecting to Oracle database via Sqoop. Below is the sample import command to pull table employees from oracle database testdb.
+sqoop import \
+--connect jdbc:oracle:thin:@oracle.example.com/testdb \
+--username SQOOP \
+--password sqoop \
+--table employees
+
+While connecting to MySQL through Sqoop, I am gettingConnection Failure exception what might be the root cause and fix for this error scenario?
+This might be due to insufficient permissions to access your MySQL database over the network. To confirm this we can try the below command to connect to MySQL database from Sqoop’s client machine.
+$ mysql --host=MySql node&gt; --database=test --user= --password=
+
+While importing tables from Oracle database, Sometimes I am getting java.lang.IllegalArgumentException: Attempted to generate class with no columns! or NullPointerException what might be the root cause and fix for this error scenario?
+While dealing with Oracle database from Sqoop, Case sensitivity of table names and user names matters highly. Most probably by specifying these two values in UPPER case will solve the issue unless actual names are mixed with Lower/Upper cases. If these are mixed, then we need to provide them within double quotes.
+In case, the source table is created under different user namespace, then we need to provide table name as USERNAME.TABLENAME as shown below.
+sqoop import \
+--connect jdbc:oracle:thin:@oracle.example.com/ORACLE \
+--username SQOOP \
+--password sqoop \
+--table SIVA.EMPLOYEES
+
+What is the default file format to import data using Apache Sqoop?
+Ans. By using two file formats Sqoop allows data import. Such as:
+i) Delimited Text File Format
+Basically, to import data using Sqoop this is the default file format. Moreover, to the import command in Sqoop, this file format can be explicitly specified using the –as-textfile argument. Likewise, passing this argument will produce the string-based representation of all the records to the output files with the delimited characters between rows and columns.
+ii) Sequence File Format
+We can say, Sequence file format is a binary file format. Their records are stored in custom record-specific data types which are shown as Java classes. In addition, Sqoop automatically creates these data types and manifests them as java classes.
+
+How can you execute a free-form SQL query in Sqoop to import the rows in a sequential manner?
+By using the –m 1 option in the Sqoop import command we can accomplish it. Basically, it will create only one MapReduce task which will then import rows serially.
+
+Does Apache Sqoop have a default database?
+Ans. Yes, MySQL is the default database.
+
+How will you list all the columns of a table using Apache Sqoop?
+Ans. Since to list all the columns we do not have any direct command like sqoop-list-columns. So, indirectly we can achieve this is to retrieve the columns of the desired tables and redirect them to a file that can be viewed manually containing the column names of a particular table.
+
+Sqoop import –m 1 –connect ‘jdbc: sqlserver: //nameofmyserver; database=nameofmydatabase; username=DeZyre; password=mypassword’ –query “SELECT column_name, DATA_TYPE FROM INFORMATION_SCHEMA.Columns WHERE table_name=’mytableofinterest’ AND \$CONDITIONS” –target-dir ‘mytableofinterest_column_name’
+
+If the source data gets updated every now and then, how will you synchronize the data in HDFS that is imported by Sqoop?
+
+Ans. By using incremental parameter with data import we can synchronize the data–
+–However, with one of the two options, we can use incremental parameter-
+i) append
+Basically, we should use incremental import with append option. Even if the table is getting updated continuously with new rows and increasing row id values then. Especially, where values of some of the columns are checked (columns to be checked are specified using –check-column) and if it discovers any modified value for those columns then only a new row will be inserted.
+ii) lastmodified
+However, in this kind of incremental import, the source has a date column which is checked for. Any records that have been updated after the last import based on the lastmodifed column in the source, the values would be updated.
+
+Name a few import control commands. How can Sqoop handle large objects?
+
+Ans. To import RDBMS data, we use import control commands
+
+Append: Append data to an existing dataset in HDFS.
+–append
+Columns: columns to import from the table.
+–columns
+<col,col……> •
+Where: where clause to use during import. —
+Where the common large objects are Blog and Clob. Suppose the object is less than 16 MB, it is stored inline with the rest of the data. If there are big objects, they are temporarily stored in a subdirectory with the name _lob. Those data are then materialized in memory for processing. If we set lob limit as ZERO (0) then it is stored in external memory.
+
+How can we import data from particular row or column? What is the destination types allowed in Sqoop import command?
+
+Ans. Basically, on the basis of where clause, Sqoop allows to Export and Import the data from the data table. So, the syntax is
+–columns
+<col1,col2……> –where
+–query
+For Example:
+sqoop import –connect jdbc:mysql://db.one.com/corp –table EMP –where “start_date> ’2016-07-20’ ”
+sqoopeval –connect jdbc:mysql://db.test.com/corp –query “SELECT * FROM emp LIMIT 20”
+sqoop import –connect jdbc:mysql://localhost/database –username root –password aaaaa –columns “name,emp_id,jobtitle”
+
+However, into following services Sqoop supports data imported:
+
+1.	HDFS
+2.	Hive
+3.	Hbase
+4.	Hcatalog
+5.	Accumulo
+
+When to use –target-dir and when to use –warehouse-dir while importing data?
+Ans. Basically, we use –target-dir to specify a particular directory in HDFS. Whereas we use –warehouse-dir to specify the parent directory of all the sqoop jobs. So, in this case under the parent directory sqoop will create a directory with the same name as the table.
+
+What is the process to perform an incremental data load in Sqoop?
+
+Ans. In Sqoop, the process to perform incremental data load is to synchronize the modified or updated data (often referred as delta data) from RDBMS to Hadoop. Moreover, in Sqoop the delta data can be facilitated through the incremental load command.
+In addition, by using Sqoop import command we can perform incremental load. Also, by loading the data into the hive without overwriting it. However, in Sqoop the different attributes that need to be specified during incremental load are
+
+1) Mode (incremental)
+It shows how Sqoop will determine what the new rows are. Also, it has value as Append or Last Modified.
+2) Col (Check-column)
+Basically, it specifies the column that should be examined to find out the rows to be imported.
+
+3) Value (last-value)
+It denotes the maximum value of the check column from the previous import operation.
+
+What is the significance of using –compress-codec parameter?
+Ans. However, we use the –compress -code parameter to get the out file of a sqoop import in formats other than .gz like .bz2.
+
+Can free-form SQL queries be used with Sqoop import command? If yes, then how can they be used?
+Ans. In Sqoop, we can use SQL queries with the import command. Basically, we should use import command with the –e and – query options to execute free-form SQL queries. But note that the –target dir value must be specified While using the –e and –query options with the import command.
+
+What is the importance of eval tool?
+
+Ans. Basically, Sqoop Eval helps to run sample SQL queries against Database as well as preview the results on the console. Moreover, it helps to know what data we can import or that desired data is imported or not.
+
+How can you import only a subset of rows from a table?
+Ans. In the sqoop import statement, by using the WHERE clause we can import only a subset of rows.
+
+What are the limitations of importing RDBMS tables into Hcatalog directly?
+Ans. By making use of –hcatalog –database option with the –hcatalog –table, we can import RDBMS tables into Hcatalog directly. However, there is one limitation to it is that it does not support several arguments like –as-Avro file, -direct, -as-sequencefile, -target-dir , -export-dir.
+
+
+What is the advantage of using –password-file rather than -P option while preventing the display of password in the sqoop import statement?
+Ans.  Inside a sqoop script, we can use The –password-file option. Whereas the -P option reads from standard input, preventing automation.
+
+What do you mean by Free Form Import in Sqoop?
+
+Ans. By using any SQL Sqoop can import data from a relational database query rather than only using table and column name parameters.
+
+What is the role of JDBC driver in Sqoop?
+Ans. Basically, sqoop needs a connector to connect to different relational databases. Since, as a JDBC driver, every DB vendor makes this connector available which is specific to that DB. Hence, to interact with Sqoop needs the JDBC driver of each of the database it needs.
+Is JDBC driver enough to connect sqoop to the databases?
+Ans. No. to connect to a database Sqoop needs both JDBC and connector.
+
+What is InputSplit in Hadoop?
+Ans. Input Split is defined as while a Hadoop job runs, it splits input files into chunks also assign each split to a mapper to process.
+
+What is the work of Export in Hadoop sqoop?
+Ans. Export tool transfer the data from HDFS to RDBMS
+Use of Codegen command in Hadoop sqoop?
+Ans. Basically, Codegen command generates code to interact with database records
+
+Use of Help command in Hadoop sqoop?
+Ans. Help command in Hadoop sqoop generally list available commands
+
+How can you schedule a sqoop job using Oozie?
+Ans. However, Oozie has in-built sqoop actions inside which we can mention the sqoop commands to be executed.
+What is the importance of — the split-by clause in running parallel import tasks in sqoop?
+
+Ans. In Sqoop, it mentions the column name based on whose value the data will be divided into groups of records. Further, by the MapReduce tasks, these group of records will be read in parallel.
+
+What is a sqoop metastore?
+A tool that Sqoop hosts a shared metadata repository is what we call sqoop metastore. Moreover, multiple users and/or remote users can define and execute saved jobs (created with the sqoop job) defined in this metastore.
+In addition, with the –meta-connect argument Clients must be configured to connect to the metastore in sqoop-site.xml.
+
+What is the purpose of sqoop-merge?
+Ans. The merge tool combines two datasets where entries in one dataset should overwrite entries of an older dataset preserving only the newest version of the records between both the data sets.
+
+How can you see the list of stored jobs in sqoop metastore?
+Ans. sqoop job –list
+Which database the sqoop metastore runs on?
+Ans. Basically, on the current machine running sqoop-metastore launches, a shared HSQLDB database instance.
+
+Where can the metastore database be hosted?
+Anywhere, it means we can host metastore database within or outside of the Hadoop cluster.
+
+Give the sqoop command to see the content of the job named myjob?
+Ans. Sqoop job –show myjob
+How can you control the mapping between SQL data types and Java types?
+Ans. we can configure the mapping between by using the –map-column-java property.
+For example:
+$ sqoop import … –map-column-java id = String, value = Integer
+Is it possible to add a parameter while running a saved job?
+Yes, by using the –exec option we can add an argument to a saved job at runtime.
+
+sqoop job –exec jobname — — newparameter
+
+What is the usefulness of the options file in sqoop.
+
+Ans. To specify the command line values in a file and use it in the sqoop commands we use the options file in sqoop.
+For example
+The –connect parameter’s value and –user name value scan be stored in a file and used again and again with different sqoop commands.
+
+How can you avoid importing tables one-by-one when importing a large number of tables from a database?
+Ans. Using the command
+sqoop import-all-tables
+–connect
+–usrename
+–password
+–exclude-tables table1,table2 ..
+
+Basically, this will import all the tables except the ones mentioned in the exclude-tables clause.
+How can you control the number of mappers used by the sqoop command?
+
+Ans. To control the number of mappers executed by a sqoop command we use the parameter –num-mappers. Moreover, we should start with choosing a small number of map tasks and then gradually scale up as choosing high number of mappers initially may slow down the performance on the database side.
+What is the default extension of the files produced from a sqoop import using the –compress parameter?
+Ans. .gz
+
+What is the significance of using –compress-codec parameter?
+Ans. We use the –compress -code parameter to get the out file of a sqoop import in formats other than .gz like .bz2.
+What is a disadvantage of using –direct parameter for faster data load by sqoop?
+Ans. The native utilities used by databases to support faster laod do not work for binary data formats like SequenceFile.
+How will you update the rows that are already exported?
+Basically, to update existing rows we can use the parameter –update-key. Moreover, in it, a comma-separated list of columns is used which uniquely identifies a row. All of these columns are used in the WHERE clause of the generated UPDATE query. All other table columns will be used in the SET part of the query.
+
+What are the basic commands in Apache Sqoop and its uses?
+The basic commands of Apache Sqoop are:
+Codegen, Create-hive-table, Eval, Export, Help, Import, Import-all-tables, List-databases, List-tables, Versions.
+Moreover, uses of Apache Sqoop basic commands are:
+
+1.	Codegen- It helps to generate code to interact with database records.
+2.	Create- hive-table- It helps to Import a table definition into a hive
+3.	Eval- It helps to evaluate SQL statement and display the results
+4.	Export- It helps to export an HDFS directory into a database table
+5.	Help- It helps to list the available commands
+6.	Import- It helps to import a table from a database to HDFS
+7.	Import-all-tables- It helps to import tables from a database to HDFS
+8.	List-databases- It helps to list available databases on a server
+9.	List-tables- It helps to list tables in a database
+10.	Version- It helps to display the version information
+
+What is Sqoop Validation?
+
+It means to validate the data copied. Either import or export by comparing the row counts from the source as well as the target post copy. Likewise, we use this option to compare the row counts between source as well as the target just after data imported into HDFS. Moreover, While during the imports, all the rows are deleted or added, Sqoop tracks this change. Also updates the log file.
+
+Learn all insights of Sqoop Validation, follow the link: Sqoop Validation – Interfaces & Limitations of Sqoop Validate 
+
+What is Purpose to Validate in Sqoop?
+
+Ans. In Sqoop to validate the data copied is Validation main purpose. Basically, either Sqoop import or Export by comparing the row counts from the source as well as the target post copy.
+
+What is Sqoop Job?
+To perform an incremental import if a saved job is configured, then state regarding the most recently imported rows is updated in the saved job. Basically, that allows the job to continually import only the newest rows.
+
+Learn all insights of Sqoop job, follow the link: Sqoop- Introduction to Sqoop Job Tutorial   
+
+What is Sqoop Import Mainframe Tool and its Purpose?
+
+Ans. Basically, a tool which we use to import all sequential datasets in a partitioned dataset (PDS) on a mainframe to HDFS is Sqoop Import Mainframe. That tool is what we call import mainframe tool. Also, A PDS is akin to a directory on the open systems. Likewise, in a dataset, the records can only contain character data. Moreover here, records will be stored as a single text field with the entire record.
+Learn all insights of Sqoop Import Mainframe, follow the link: Learn Sqoop Import Mainframe Tool – Syntax and Examples
+
+What is the purpose of Sqoop List Tables?
+Ans. Basically, the main purpose of sqoop-list-tables is list tables present in a database.
+Learn all insights of Sqoop List Tables, follow the link: Sqoop List Tables – Arguments and Examples 
+
+Difference Between Apache Sqoop vs Flume.
+
+Ans. So, let’s discuss all the differences on the basis of features.
+a. Data Flow
+Apache Sqoop – Basically, Sqoop works with any type of relational database system (RDBMS) that has the basic JDBC connectivity. Also, Sqoop can import data from NoSQL databases like MongoDB, Cassandra and along with it. Moreover, it allows data transfer to Apache Hive or HDFS.
+Apache Flume– Likewise, Flume works with streaming data sources those are generated continuously in Hadoop environments. Like log files.
+b. Type of Loading
+Apache Sqoop – Basically,  Sqoop load is not driven by events.
+Apache Flume – Here, data loading is completely event-driven.
+c. When to use
+Apache Sqoop – However, if the data is being available in Teradata, Oracle, MySQL, PostreSQL or any other JDBC compatible database it is considered an ideal fit.
+Apache Flume – While we move bulk of streaming data from sources likes JMS or spooling directories, it is the best choice.
+d. Link to HDFS
+Apache Sqoop – Basically, for importing data in Apache Sqoop, HDFS is the destination
+Apache Flume – In Apache Flume, data generally flow to HDFS through channels
+e. Architecture 
+Apache Sqoop – Basically, it has connector based architecture. However, that means the connectors know a great deal in connecting with the various data sources. Also to fetch data correspondingly.
+
+Apache Flume – However, it has agent-based architecture. Basically, it means code written in Flume is we call agent that may responsible for fetching the data.
+
+I am having around 500 tables in a database. I want to import all the tables from the database except the tables named Table 498, Table 323, and Table 199. How can we do this without having to import the tables one by one?
+This can be proficient using the import-all-tables, import command in Sqoop and by specifying the exclude-tables option with it as follows-
+sqoop import-all-tables
+–connect –username –password –exclude-tables Table498, Table 323, Table 199
+
+What are the differences between Sqoop, flume, and distcp?
+Both Distcp and Sqoop are used for transferring the data. Sqoop is used for transferring any type of data from one hadoop cluster to another cluster, whereas Sqoop transfers data between Relational databases and Hadoop ecosystem such as Hive, HDFS, and HBase etc. But both the methods use the same approach to copy the data, which is pull/transfer.
+
+Flume has distributed a tool, follows agent-based architecture, for streaming the logs into Hadoop ecosystem. Whereas Sqoop is a connector based architecture.
+
+Flume collects and aggregates a huge amount of log data. Flume can collect the data from different type of resources; it doesn’t consider the schema or structured/unstructured data. Flume can pull any type of data. Whereas Sqoop can only import the Relational Database Data, so schema is mandatory for sqoop to process. Generally, for moving bulk workloads, the flume is the best option.
+How do you update the data or rows already exported?
+To update the rows, that are already exported the destination we can use the parameter “–update-key”. In this, a comma-separated columns list is used which uniquely identifies a row and all of these columns are used in WHERE clause of the generated UPDATE query. SET part of the query will take care of all other table columns.
+
+What is split-by clause and when do we use it?
+Answer:
+A split-by parameter is for slicing the data to be imported into multiple parallel tasks. Using this parameter, we can specify the columns names, these are columns name based on which sqoop will be dividing the data to be imported into multiple chunks and they will be running in a parallel fashion. It is one the techniques to tune the performance in Sqoop.
+
+How to import RDBMS table in Hadoop using Sqoop when the table doesn’t have a primary key column?
+ Ans: Usually, we import an RDBMS table in Hadoop using Sqoop Import when it has a primary key column. If it doesn't have the primary key column, it will give you the below errorERROR tool.ImportTool: Error during import: No primary key could be found for table . Please specify one with --split-by or perform a sequential import with '-m 1' Here is the solution of what to do when you don’t have a primary key column in RDBMS, and you want to import using Sqoop. If your table doesn’t have the primary key column, you need to specify -m 1 option for importing the data, or you have to provide --split-by argument with some column name. Here are the scripts which you can use to import an RDBMS table in Hadoop using Sqoop when you don’t have a primary key column.
+
+sqoop import \ --connect jdbc:mysql://localhost/dbname \ --username root \ --password root \ --table user \ --target-dir /user/root/user_data \ --columns "first_name, last_name, created_date" -m 1
+
+sqoop import \ --connect jdbc:mysql://localhost/ dbname\ --username root \ --password root \ --table user \ --target-dir /user/root/user_data \ --columns "first_name, last_name, created_date" --split-by created_date
+ 
+1. _________ tool can list all the available database schemas.
+a) sqoop-list-tables
+b) sqoop-list-databases
+c) sqoop-list-schema
+d) sqoop-list-columns
+Answer: b
+Explanation: Sqoop also includes a primitive SQL execution shell (the sqoop-eval tool).
+
+2. Point out the correct statement :
+a) The sqoop command-line program is a wrapper which runs the bin/hadoop script shipped with Hadoop
+b) If $HADOOP_HOME is set, Sqoop will use the default installation location for Cloudera’s Distribution for Hadoop
+c) The active Hadoop configuration is loaded from $HADOOP_HOME/conf/, unless the $HADOOP_CONF_DIR environment variable is unset
+d) None of the mentioned
+Answer: a
+Explanation: If you have multiple installations of Hadoop present on your machine, you can select the Hadoop installation by setting the $HADOOP_HOME environment variable.
+
+3. Data can be imported in maximum ______ file formats.
+a) 1
+b) 2
+c) 3
+d) All of the mentioned
+Answer: b
+Explanation: You can import data in one of two file formats: delimited text or SequenceFiles.
+4. ________ text is appropriate for most non-binary data types.
+a) Character
+b) Binary
+c) Delimited
+d) None of the mentioned
+Answer: c
+Explanation: Delimited text is the default import format.
+
+5. Point out the wrong statement :
+a) Avro data files are a compact, efficient binary format that provides interoperability with applications written in other programming languages
+b) By default, data is is compressed while importing
+c) Delimited text also readily supports further manipulation by other tools, such as Hive
+d) None of the mentioned
+Answer: b
+Explanation: You can compress your data by using the deflate (gzip) algorithm with the -z or –compress argument, or specify any Hadoop compression codec using the –compression-codec argument.
+
+6. If you set the inline LOB limit to ________ all large objects will be placed in external storage.
+a) 0
+b) 1
+c) 2
+d) 3
+Answer: a
+Explanation: The size at which lobs spill into separate files is controlled by the –inline-lob-limit argument, which takes a parameter specifying the largest lob size to keep inline, in bytes.
+
+7. ________ does not support the notion of enclosing characters that may include field delimiters in the enclosed string.
+a) Imphala
+b) Oozie
+c) Sqoop
+d) Hive
+Answer: d
+Explanation: Even though Hive supports escaping characters, it does not handle escaping of new-line character.
+8. Sqoop can also import the data into Hive by generating and executing a ____________ statement to define the data’s layout in Hive.
+a) SET TABLE
+b) CREATE TABLE
+c) INSERT TABLE
+d) All of the mentioned
+Answer: b
+Explanation: Importing data into Hive is as simple as adding the –hive-import option to your Sqoop command line.
+9. The __________ tool imports a set of tables from an RDBMS to HDFS.
+a) export-all-tables
+b) import-all-tables
+c) import-tables
+d) none of the mentioned
+
+
+Answer: c
+Explanation: Data from each table is stored in a separate directory in HDFS.
+10. Which of the following argument is not supported by import-all-tables tool ?
+a) –class-name
+b) –package-name
+c) –database-name
+d) –table-name
+Answer: a
+Explanation: You may, however, specify a package with –package-name in which all generated classes will be placed.
+
+ 
+Second Set Questions
+1. Which of the following interface is implemented by Sqoop for recording ?
+a) SqoopWrite
+b) SqoopRecord
+c) SqoopRead
+d) None of the mentioned
+Answer: b
+Explanation: Class SqoopRecord is interface implemented by the classes generated by sqoop orm.ClassWriter.
+
+2. Point out the correct statement :
+a) Interface FieldMapping is used for mapping of field
+b) Interface FieldMappable is used for mapping of field
+c) Sqoop is nothing but NoSQL to Hadoop
+d) Sqoop internally uses ODBC interface so it should work with any JDBC compatible database
+Answer: b
+Explanation: FieldMappable Interface describes a class capable of returning a map of the fields of the object to their values.
+
+3. Sqoop is an open source tool written at ________
+a) Cloudera
+b) IBM
+c) Microsoft
+d) All of the mentioned
+Answer: c
+Explanation: Sqoop allows users to import data from their relational databases into HDFS and vice versa.
+
+4. Sqoop uses _________ to fetch data from RDBMS and stores that on HDFS.
+a) Hive
+b) Map reduce
+c) Imphala
+d) BigTOP
+Answer: b
+Explanation: While fetching , it throttles the number of mappers accessing data on RDBMS to avoid DDoS.
+
+5. Point out the wrong statement :
+a) Sqoop is used to import complete database
+b) Sqoop is used to import selected columns from a particular table
+c) Sqoop is used to import selected tables
+d) All of the mentioned
+Answer: d
+Explanation: Apache Sqoop is tool which allows users to import data from relational databases to HDFS and export data from HDFS to relational database.
+6. _________ allows users to specify the target location inside of Hadoop.
+a) Imphala
+b) Oozie
+c) Sqoop
+d) Hive
+Answer: c
+Explanation: Sqoop is a connectivity tool for moving data from non-Hadoop data stores – such as relational databases and data warehouses – into Hadoop.
+
+7. Microsoft uses a Sqoop-based connector to help transfer data from _________ databases to Hadoop
+a) PostreSQL
+b) SQL Server
+c) Oracle
+d) MySQL
+Answer: b
+Explanation: Sqoop is a command-line interface application for transferring data between relational databases and Hadoop.
+
+8. __________ provides a Couchbase Server-Hadoop connector by means of Sqoop.
+a) MemCache
+b) Couchbase
+c) Hbase
+d) All of the mentioned
+Answer: a
+Explanation: Exports can be used to put data from Hadoop into a relational database.
+
+9. Sqoop direct mode does not support imports of ______ columns
+a) BLOB
+b) LONGVARBINARY
+c) CLOB
+d) All of the mentioned
+Answer: d
+Explanation: Use JDBC-based imports for these columns; do not supply the –direct argument to the import tool.
+10. Sqoop has been tested with Oracle ______ Express Edition.
+a) 11.2.0
+b) 10.2.0
+c) 12.2.0
+d) 10.3.0
+Answer: b
+Explanation: Oracle is notable in its different approach to SQL from the ANSI standard, and its non-standard JDBC driver. Therefore, several features work differently.
+ 
+Why do we need to specify $CONDITIONS in the query?
+If you run a parallel import, the map tasks will execute your query with different values substituted in for $CONDITIONS. e.g., one mapper may execute “select order_id from orders WHERE (order_id >=1 AND order_id < 10)”, and the next mapper may execute “select order_id  from orders WHERE (order_id >= 10 AND id < 20)” and so on.
+*Sqoop does not parse your SQL statement into an abstract syntax tree which would allow it to modify your query without textual hints. You are free to add further constraints , but the literal string “$CONDITIONS” should appear in the WHERE clause of your query so that Sqoop is able to textually replace it with its own refined constraints.
+Another important point to note is that using table import might be faster than using equivalent free-form query import,the reason being Sqoop can't use the database catalog to fetch the metadata.
+
